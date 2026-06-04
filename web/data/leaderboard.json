@@ -1,0 +1,66 @@
+{
+  "leaderboard": [
+    {
+      "model": "claude-opus-4-8",
+      "overall": 0.855,
+      "n_tasks": 2,
+      "by_category": {
+        "Financial Modeling & Scenario Analysis": 0.88,
+        "Valuation & Pricing Analysis": 0.83
+      },
+      "total_cost_usd": 0.77
+    },
+    {
+      "model": "claude-sonnet-4-6",
+      "overall": 0.765,
+      "n_tasks": 2,
+      "by_category": {
+        "Valuation & Pricing Analysis": 0.74,
+        "Financial Modeling & Scenario Analysis": 0.79
+      },
+      "total_cost_usd": 0.22
+    },
+    {
+      "model": "gpt-4o",
+      "overall": 0.635,
+      "n_tasks": 2,
+      "by_category": {
+        "Valuation & Pricing Analysis": 0.61,
+        "Financial Modeling & Scenario Analysis": 0.66
+      },
+      "total_cost_usd": 0.34
+    },
+    {
+      "model": "o3-mini",
+      "overall": 0.55,
+      "n_tasks": 2,
+      "by_category": {
+        "Financial Modeling & Scenario Analysis": 0.58,
+        "Valuation & Pricing Analysis": 0.52
+      },
+      "total_cost_usd": 0.09
+    }
+  ],
+  "pareto": [
+    {
+      "model": "claude-opus-4-8",
+      "accuracy": 0.855,
+      "cost_usd": 0.77
+    },
+    {
+      "model": "claude-sonnet-4-6",
+      "accuracy": 0.765,
+      "cost_usd": 0.22
+    },
+    {
+      "model": "gpt-4o",
+      "accuracy": 0.635,
+      "cost_usd": 0.34
+    },
+    {
+      "model": "o3-mini",
+      "accuracy": 0.55,
+      "cost_usd": 0.09
+    }
+  ]
+}

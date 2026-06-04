@@ -142,6 +142,10 @@ def main():
     ap.add_argument("--outputs", required=True, help="dir with the agent's deliverables")
     ap.add_argument("--final-prompt-file", help="text file with the prompt (for the judge)")
     ap.add_argument("--judge-model", default="claude-sonnet-4-6")
+    ap.add_argument("--cost-usd", type=float, default=None,
+                    help="rollout cost for this task; recorded so the leaderboard "
+                         "can plot cost vs accuracy (the harness knows the cost, "
+                         "the scorer does not)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -185,6 +189,8 @@ def main():
         "by_category": cat_scores,
         "criteria": results,
     }
+    if args.cost_usd is not None:
+        out["cost_usd"] = args.cost_usd  # leaderboard.py reads this for the Pareto view
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
