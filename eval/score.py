@@ -96,17 +96,41 @@ def llm_judge(criterion: str, deliverable_text: str, final_prompt: str, model: s
         "Score how well the deliverable satisfies the criterion."
     )
     msg = client.messages.create(
-        model=model, max_tokens=300,
+        model=model, max_tokens=600,
         system=JUDGE_SYSTEM,
         messages=[{"role": "user", "content": user}],
     )
     raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    score, rationale = _parse_judge(raw)
+    if score is None:
+        return 0.0, f"judge parse error: {raw[:160]}"
+    return max(0.0, min(1.0, score)), rationale[:300]
+
+
+def _parse_judge(raw: str):
+    """Extract (score, rationale) from a judge reply that may wrap its JSON in
+    prose, reasoning, or code fences. Returns (None, raw) if no score is found."""
+    import re
     raw = raw.replace("```json", "").replace("```", "").strip()
+    # 1) whole thing is JSON
     try:
-        obj = json.loads(raw)
-        return max(0.0, min(1.0, float(obj["score"]))), str(obj.get("rationale", ""))[:300]
+        o = json.loads(raw)
+        return float(o["score"]), str(o.get("rationale", ""))
     except Exception:
-        return 0.0, f"judge parse error: {raw[:120]}"
+        pass
+    # 2) the last {...} object that carries a score
+    for m in reversed(list(re.finditer(r"\{.*?\}", raw, re.DOTALL))):
+        try:
+            o = json.loads(m.group(0))
+            if "score" in o:
+                return float(o["score"]), str(o.get("rationale", ""))
+        except Exception:
+            continue
+    # 3) last resort: a bare score: number, with surrounding text as rationale
+    m = re.search(r'"?score"?\s*[:=]\s*(-?[0-9]*\.?[0-9]+)', raw, re.IGNORECASE)
+    if m:
+        return float(m.group(1)), raw[:300]
+    return None, raw
 
 
 # ----------------------------- orchestration -----------------------------

@@ -10,3 +10,4 @@ rubrics/*
 !rubrics/btb-001.json
 outputs/
 *.tmp
+workspaces/
