@@ -28,6 +28,7 @@ def main():
 
     per_model_scores = defaultdict(list)
     per_model_cat = defaultdict(lambda: defaultdict(list))
+    per_model_prod = defaultdict(lambda: defaultdict(list))
     per_model_cost = defaultdict(float)
 
     for path in glob.glob(os.path.join(args.results, "*.json")):
@@ -41,18 +42,24 @@ def main():
         per_model_scores[model].append(r["task_score"])
         cat = r.get("workflow_cat") or "Uncategorized"
         per_model_cat[model][cat].append(r["task_score"])
+        if r.get("product"):
+            per_model_prod[model][r["product"]].append(r["task_score"])
         per_model_cost[model] += float(r.get("cost_usd", 0) or 0)
 
     board = []
     for model, scores in per_model_scores.items():
         overall = sum(scores) / len(scores)
         cats = {c: round(sum(v) / len(v), 4) for c, v in per_model_cat[model].items()}
+        prods = {p: round(sum(v) / len(v), 4) for p, v in per_model_prod[model].items()}
+        cost = round(per_model_cost[model], 2)
         board.append({
             "model": model,
             "overall": round(overall, 4),
             "n_tasks": len(scores),
             "by_category": cats,
-            "total_cost_usd": round(per_model_cost[model], 2),
+            "by_product": prods,
+            "total_cost_usd": cost,
+            "avg_cost_usd": round(cost / len(scores), 3) if scores else 0,
         })
     board.sort(key=lambda x: x["overall"], reverse=True)
 

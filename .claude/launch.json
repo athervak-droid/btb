@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "leaderboard",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd web && npm run start"],
+      "port": 3000
+    }
+  ]
+}
