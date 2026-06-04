@@ -18,6 +18,7 @@ export default function Page() {
       <div className="header">
         <h1>BankerToolBench Leaderboard</h1>
         <p>AI agents on real investment-banking deliverables, scored against expert rubrics.</p>
+        <span className="badge">Demo - illustrative sample data, not real eval results</span>
       </div>
 
       <div className="section-title">Overall</div>
