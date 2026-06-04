@@ -184,15 +184,47 @@ _FIELD_TAGS = {
     "equity": [("us-gaap", "StockholdersEquity")],
 }
 
-# Fields that EDGAR fundamentally cannot provide (market data, not filings).
-_NOT_IN_EDGAR = {
-    "close_price", "price", "share_price", "market_cap", "enterprise_value",
+# Market prices: not in EDGAR. Served from a price vendor (Tiingo) when
+# TIINGO_API_KEY is set; otherwise these raise with a clear message.
+_PRICE_FIELDS = {"close_price", "price", "share_price", "close"}
+_PRICE_DERIVED = {"market_cap", "enterprise_value"}  # price x shares (+ net debt)
+
+# Sell-side consensus / estimates: licensed, no free source. Always raise; state
+# these in the task prompt instead (the benchmark allows prompt-stated inputs).
+_CONSENSUS_FIELDS = {
     "consensus", "consensus_estimate", "estimate", "ltm_ebitda_consensus",
-    "distributable_cash_flow_consensus", "target_price",
+    "distributable_cash_flow_consensus", "target_price", "forward_eps", "forward_ebitda",
 }
 
-# Derived fields computed from components.
+# Derived fields computed from EDGAR component facts.
 _DERIVED = {"net_debt", "ebitda", "total_debt", "net_debt_to_ebitda", "interest_coverage"}
+
+TIINGO_API_KEY = os.environ.get("TIINGO_API_KEY", "")
+_TIINGO_URL = "https://api.tiingo.com/tiingo/daily/{ticker}/prices?startDate={start}&endDate={end}&token={token}"
+
+
+def _tiingo_close(ticker: str, as_of: str | None):
+    """Most recent daily close on/before as_of (YYYY-MM-DD) from Tiingo (free
+    tier, needs TIINGO_API_KEY). Returns (close, date) or raises."""
+    if not TIINGO_API_KEY:
+        raise RuntimeError(
+            "price data needs a vendor: set TIINGO_API_KEY (free tier at "
+            "tiingo.com) so market_data can return prices. EDGAR has filings only.")
+    end = as_of or "2100-01-01"
+    # look back ~2 weeks before as_of to span weekends/holidays; if no as_of, the
+    # vendor returns the full series and we take the last row.
+    start = "1990-01-01"
+    if as_of:
+        y, m, d = (int(x) for x in as_of.split("-"))
+        start = f"{y:04d}-{max(1, m-1):02d}-01"
+    url = _TIINGO_URL.format(ticker=ticker.lower(), start=start, end=end, token=TIINGO_API_KEY)
+    rows = _get_json(url)
+    rows = [r for r in rows if r.get("close") is not None]
+    if not rows:
+        raise RuntimeError(f"no Tiingo price for {ticker!r} on/before {as_of}")
+    rows.sort(key=lambda r: r["date"])
+    last = rows[-1]
+    return last["close"], last["date"][:10]
 
 
 def _concept_series(cik10: str, taxonomy: str, tag: str):
@@ -249,17 +281,39 @@ def _logical(cik10: str, field: str, as_of: str | None):
 
 
 def market_data(ticker: str, field: str, as_of: str | None = None, **_) -> dict:
-    """Return one fundamental field for a company from EDGAR XBRL facts.
-
-    Honest about scope: market prices and sell-side consensus are not in EDGAR
-    and return an error directing the caller to a price/estimates vendor.
+    """Return one field for a company: EDGAR fundamentals, or a market price via
+    Tiingo (when TIINGO_API_KEY is set). Sell-side consensus has no free source
+    and raises - state those in the task prompt.
     """
     f = field.strip().lower()
-    if f in _NOT_IN_EDGAR:
+
+    if f in _CONSENSUS_FIELDS:
         raise RuntimeError(
-            f"field {field!r} is market data (price/consensus), which SEC EDGAR "
-            f"does not provide. Wire market_data to a price/estimates vendor for "
-            f"this field; EDGAR supplies reported fundamentals only.")
+            f"field {field!r} is sell-side consensus/estimate, which has no free "
+            f"source. State it in the task prompt as a given assumption.")
+
+    if f in _PRICE_FIELDS:
+        close, date = _tiingo_close(ticker, as_of)
+        return {"ticker": ticker.upper(), "field": f, "value": close,
+                "as_of": date, "unit": "USD/share",
+                "source": {"vendor": "tiingo", "type": "daily_close"}}
+
+    if f in _PRICE_DERIVED:
+        close, date = _tiingo_close(ticker, as_of)
+        cik10 = resolve_cik(ticker)
+        shares, _sf = _logical(cik10, "shares_diluted", as_of)
+        if not shares:
+            raise RuntimeError(f"need diluted shares for {f!r}; no XBRL fact found")
+        market_cap = close * shares
+        if f == "market_cap":
+            value = market_cap
+        else:  # enterprise_value = market cap + net debt
+            nd = _derived(cik10, ticker, "net_debt", as_of)["value"]
+            value = market_cap + (nd or 0)
+        return {"ticker": ticker.upper(), "field": f, "value": value, "as_of": date,
+                "unit": "USD", "note": "market_cap = close x diluted shares"
+                + ("; EV = market_cap + net_debt" if f == "enterprise_value" else ""),
+                "source": {"price_vendor": "tiingo", "shares": "EDGAR XBRL"}}
 
     cik10 = resolve_cik(ticker)
 

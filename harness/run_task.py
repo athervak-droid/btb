@@ -166,8 +166,11 @@ _ENV_PREAMBLE = (
     "edgar_search(ticker_or_cik, form_type=None, as_of=None) lists filings; "
     "market_data(ticker, field, as_of=None) returns fundamentals (revenue, "
     "net_income, shares_diluted, cash, net_debt, ebitda, net_debt_to_ebitda, "
-    "interest_coverage, ...). EDGAR has no market prices or consensus, so those "
-    "fields raise; source prices/estimates from the filings or state them.\n"
+    "interest_coverage, ...) from EDGAR, and market prices (close_price, "
+    "market_cap, enterprise_value) from a price vendor when configured - pass "
+    "as_of=YYYY-MM-DD for a historical close (e.g. an unaffected price). Sell-side "
+    "consensus has no data source and raises; use any consensus figures stated in "
+    "the task prompt.\n"
 )
 
 

@@ -92,6 +92,39 @@ def parse_rubric(text: str) -> list[dict]:
     return crits
 
 
+_PRICE = re.compile(r"\b(unaffected|share price|stock price|closing price|close price|"
+                    r"price per share|VWAP|premium|market cap|spot price|offer price)\b", re.I)
+_CONSENSUS = re.compile(r"\b(consensus|analyst estimate|street estimate|sell-side|"
+                        r"broker estimate|forward (EBITDA|EPS|revenue)|NTM multiple)\b", re.I)
+_HAS_PRICE_VALUE = re.compile(r"\$\d[\d,]*\.\d{2}\b|\$\d[\d,]*\s*(?:per share|/share)", re.I)
+
+
+def validate_gaps(public_rows, rubrics):
+    """Flag tasks whose rubric checks prices/consensus the agent may not have.
+
+    The benchmark rule: any non-public number a rubric checks must be in the
+    agent-facing prompt or pullable via a tool. Prices are pullable only when a
+    price vendor (TIINGO_API_KEY) is wired; consensus has no free source and must
+    be stated in the prompt. We warn where a task needs these but its prompt
+    states no price values, so under-specified tasks surface at ingest time.
+    """
+    warnings = []
+    for pub in public_rows:
+        rub = rubrics[pub["task_id"]]
+        price_c = [c for c in rub if _PRICE.search(c["criterion"])]
+        cons_c = [c for c in rub if _CONSENSUS.search(c["criterion"])]
+        prompt_has_price = bool(_HAS_PRICE_VALUE.search(pub["final_prompt"]))
+        if price_c and not prompt_has_price:
+            warnings.append((pub["task_id"], "PRICE",
+                             f"{len(price_c)} price-dependent criteria but prompt states no "
+                             f"price values -> needs TIINGO_API_KEY (price tool) or prices in prompt"))
+        if cons_c:
+            warnings.append((pub["task_id"], "CONSENSUS",
+                             f"{len(cons_c)} consensus-dependent criteria -> no free source; "
+                             f"state the estimate in the prompt"))
+    return warnings
+
+
 def _sheet_by_first_header(wb, want_cols):
     for ws in wb.worksheets:
         hdr = [str(c.value).strip() if c.value else "" for c in ws[1]]
@@ -174,6 +207,16 @@ def main():
     print(f"\npublic  -> {args.public}")
     print(f"private -> {args.private} (gitignore this)")
     print(f"rubrics -> {args.rubric_dir}/<task_id>.json (gitignored)")
+
+    rubrics = {p["task_id"]: json.load(open(pr["rubric_file"]))
+               for p, pr in zip(public_rows, private_rows)}
+    gaps = validate_gaps(public_rows, rubrics)
+    if gaps:
+        print("\nGAP CHECK (rubric-checked data the agent may not have):")
+        for tid, kind, msg in gaps:
+            print(f"  [{kind:9}] {tid}: {msg}")
+    else:
+        print("\nGAP CHECK: no price/consensus gaps detected.")
 
 
 if __name__ == "__main__":

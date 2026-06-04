@@ -136,12 +136,18 @@ python scripts/leaderboard.py --results results/ --out results/leaderboard.json
   (public, free, no key) in `harness/tools_edgar.py` using the standard library
   only. `edgar_search` resolves a ticker to a CIK and lists filings; `market_data`
   pulls reported fundamentals from EDGAR's XBRL facts (revenue, net income, shares,
-  cash, debt, and derived net_debt / EBITDA / leverage / coverage). EDGAR is
-  filings only, so market prices and sell-side consensus return a clear error
-  pointing you to a vendor; do not redistribute licensed market data. **Set a
+  cash, debt, and derived net_debt / EBITDA / leverage / coverage). **Set a
   contact User-Agent** or SEC will 403 you:
   `export SEC_USER_AGENT="your name (you@example.com)"`. Smoke-test it free with
   `python harness/tools_edgar.py OKE`.
+  - **Prices:** EDGAR has no market prices, so `market_data` serves `close_price`,
+    `market_cap`, and `enterprise_value` from [Tiingo](https://www.tiingo.com)
+    (free tier) when `TIINGO_API_KEY` is set; pass `as_of=YYYY-MM-DD` for a
+    historical close (e.g. an unaffected price). Without the key these fields
+    raise with a clear message.
+  - **Consensus/estimates** are licensed with no free source: state them in the
+    task prompt as given assumptions (the benchmark allows prompt-stated inputs).
+    Do not redistribute licensed market data.
 - **Swap the harness:** the reference path uses OpenHands (Docker-in-Docker,
   sandboxed) like Vibe Code Bench and BTB. Any agent harness works as long as it
   takes the prompt + tools and writes files to `outputs/`.
