@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+results/*
+!results/.gitkeep
+# Keep TEST-SET rubrics private. The dev rubric (btb-001) is public for calibration.
+# Use rubrics/* (not rubrics/) so the negation can re-include one file; git cannot
+# re-include a path whose parent directory is itself ignored.
+rubrics/*
+!rubrics/btb-001.json
+outputs/
+*.tmp
