@@ -129,9 +129,16 @@ python scripts/leaderboard.py --results results/ --out results/leaderboard.json
   tool (the agent never sees `prompt_context`).
 - **Add a deterministic check:** add a function in `eval/checks.py` and register it
   in the dispatch table; reference it from a rubric criterion's `check.type`.
-- **Wire the data tools:** `harness/run_task.py` defines `edgar_search` and
-  `market_data` as tool stubs. Point them at your SEC EDGAR copy and a market-data
-  source. SEC EDGAR is public; do not redistribute licensed market data.
+- **Data tools:** `edgar_search` and `market_data` are wired to SEC EDGAR
+  (public, free, no key) in `harness/tools_edgar.py` using the standard library
+  only. `edgar_search` resolves a ticker to a CIK and lists filings; `market_data`
+  pulls reported fundamentals from EDGAR's XBRL facts (revenue, net income, shares,
+  cash, debt, and derived net_debt / EBITDA / leverage / coverage). EDGAR is
+  filings only, so market prices and sell-side consensus return a clear error
+  pointing you to a vendor; do not redistribute licensed market data. **Set a
+  contact User-Agent** or SEC will 403 you:
+  `export SEC_USER_AGENT="your name (you@example.com)"`. Smoke-test it free with
+  `python harness/tools_edgar.py OKE`.
 - **Swap the harness:** the reference path uses OpenHands (Docker-in-Docker,
   sandboxed) like Vibe Code Bench and BTB. Any agent harness works as long as it
   takes the prompt + tools and writes files to `outputs/`.
