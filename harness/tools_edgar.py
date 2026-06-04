@@ -23,6 +23,7 @@ https://www.sec.gov/search-filings/edgar-application-programming-interfaces
 from __future__ import annotations
 import json
 import os
+import re
 import time
 import urllib.request
 import urllib.error
@@ -42,8 +43,8 @@ _TICKER_CACHE: dict | None = None  # ticker (upper) -> {cik_str, ticker, title}
 
 # ----------------------------- HTTP -----------------------------
 
-def _get_json(url: str, retries: int = 3, backoff: float = 1.0):
-    """GET a URL and parse JSON, with the SEC-required UA and light retry.
+def _get_text(url: str, retries: int = 3, backoff: float = 1.0) -> str:
+    """GET a URL and return decoded text, with the SEC-required UA and light retry.
 
     SEC throttles to ~10 req/s and 403s requests without a real UA. We surface a
     readable error rather than a raw traceback so the agent/tool layer can react.
@@ -60,7 +61,7 @@ def _get_json(url: str, retries: int = 3, backoff: float = 1.0):
                 if resp.headers.get("Content-Encoding") == "gzip":
                     import gzip
                     raw = gzip.decompress(raw)
-                return json.loads(raw.decode("utf-8"))
+                return raw.decode("utf-8", errors="replace")
         except urllib.error.HTTPError as e:
             last_err = f"HTTP {e.code} for {url}"
             if e.code in (403, 429, 500, 502, 503):
@@ -71,6 +72,11 @@ def _get_json(url: str, retries: int = 3, backoff: float = 1.0):
             last_err = f"network error for {url}: {e}"
             time.sleep(backoff * (attempt + 1))
     raise RuntimeError(last_err or f"failed to GET {url}")
+
+
+def _get_json(url: str, retries: int = 3, backoff: float = 1.0):
+    """GET a URL and parse JSON."""
+    return json.loads(_get_text(url, retries=retries, backoff=backoff))
 
 
 # ----------------------------- CIK resolution -----------------------------
@@ -84,17 +90,65 @@ def _load_ticker_map() -> dict:
     return _TICKER_CACHE
 
 
+def _norm_name(s: str) -> str:
+    return re.sub(r"[^a-z0-9 ]", "", s.lower()).strip()
+
+
+def _resolve_by_name(name: str):
+    """Resolve a company NAME to a CIK via EDGAR's company-name search. Covers
+    delisted/acquired companies the current ticker map omits (e.g. Magellan after
+    the 2023 ONEOK deal). This matches the FILER's own name (not text mentions, so
+    it returns the target itself, not the acquirer that discusses it).
+
+    A name can map to several related filer entities (common for MLP families);
+    we pick the closest name match. Returns (cik10, conformed_name) or (None, None)."""
+    import urllib.parse
+    url = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company="
+           + urllib.parse.quote(name) + "&type=10-K&owner=include&count=10&output=atom")
+    try:
+        body = _get_text(url)
+    except RuntimeError:
+        return None, None
+    # one (cik, conformed-name) per <company-info> block (single or multi match)
+    candidates = []
+    for chunk in re.split(r"<company-info", body)[1:]:
+        cm = re.search(r"<cik>(\d{10})</cik>", chunk, re.I)
+        nm = re.search(r"<conformed-name>([^<]+)</conformed-name>", chunk, re.I)
+        if cm:
+            candidates.append((cm.group(1), nm.group(1) if nm else ""))
+    if not candidates:
+        return None, None
+    q = _norm_name(name)
+
+    def rank(cand):
+        nc = _norm_name(cand[1])
+        return (nc == q, nc.startswith(q), q in nc, -abs(len(nc) - len(q)))
+
+    best = max(candidates, key=rank)
+    return best[0], best[1]
+
+
 def resolve_cik(ticker_or_cik: str) -> str:
-    """Return a 10-digit zero-padded CIK string for a ticker or raw CIK."""
+    """Return a 10-digit zero-padded CIK for a ticker, raw CIK, or company name.
+
+    Tries: raw CIK -> current ticker map -> EDGAR full-text name search (so
+    delisted/acquired targets, absent from the ticker map, still resolve)."""
     s = str(ticker_or_cik).strip()
     if s.upper().startswith("CIK"):
         s = s[3:]
     if s.isdigit():
         return s.zfill(10)
     row = _load_ticker_map().get(s.upper())
-    if not row:
-        raise RuntimeError(f"no CIK found for ticker {ticker_or_cik!r} in SEC ticker map")
-    return str(row["cik_str"]).zfill(10)
+    if row:
+        return str(row["cik_str"]).zfill(10)
+    # not a current ticker: fall back to name search (handles delisted companies)
+    cik, _dn = _resolve_by_name(s)
+    if cik:
+        return cik
+    raise RuntimeError(
+        f"no CIK for {ticker_or_cik!r}: not a current ticker and no EDGAR name "
+        f"match. For a delisted/acquired company, pass its full name (e.g. "
+        f"'Magellan Midstream Partners').")
 
 
 # ----------------------------- edgar_search -----------------------------
