@@ -18,11 +18,11 @@ against an expert rubric. Full design is in README.md.
   `python scripts/leaderboard.py --results results/ --out results/leaderboard.json`
 
 ## Architecture
-- `data/` - tasks in JSONL (final_prompt + metadata). The test set has no rubric; the dev set does.
-- `harness/run_task.py` - prepares a workspace + tool defs, runs the agent via OpenHands, collects outputs.
+- `data/` - tasks in JSONL. Public `tasks.test.jsonl` is final_prompt + metadata only; rubrics and contexts are private (`tasks.private.jsonl`, gitignored). Build both from the authoring spreadsheet with `scripts/ingest_tasks.py`.
+- `harness/run_task.py` - prepares a workspace + tool defs, runs the agent via OpenHands, collects outputs. `harness/tools_edgar.py` - SEC EDGAR data tools.
 - `eval/checks.py` - deterministic checks; `eval/score.py` - routes each rubric criterion to a check or an LLM judge, weighted.
 - `scripts/leaderboard.py` - aggregates results into `leaderboard.json` (overall, per-category, cost/Pareto).
-- `rubrics/` - grading keys. Keep TEST rubrics private; `.gitignore` excludes the folder except the dev example.
+- `rubrics/` - grading keys, one `<task_id>.json` per task. All private; `.gitignore` excludes the whole folder.
 
 ## Conventions
 - The agent only ever sees `final_prompt` in realistic mode. Any non-public number a rubric

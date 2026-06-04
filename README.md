@@ -43,16 +43,18 @@ Set the mode with `--mode realistic|scaffolded`.
 ```
 data/
   tasks.test.jsonl     # PUBLIC test set: final_prompt + metadata only (no rubric/context/answers)
-  tasks.dev.jsonl      # small PUBLIC dev set, with rubric, for calibration
-  task-data/<id>/Inputs/   # input files handed to the agent for that task
+  tasks.private.jsonl  # PRIVATE (gitignored): full records incl. prompt/formatting context + rubric pointer
+  task-data/<id>/Inputs/   # input files handed to the agent for that task (if any)
 rubrics/
-  <id>.json            # rubric: [{criterion, category, weight, check?}]  (KEEP TEST RUBRICS PRIVATE)
+  <id>.json            # rubric: [{criterion, category, weight, check?}]  (PRIVATE, gitignored)
 harness/
   run_task.py          # rollout: build workspace + tools, run via OpenHands, collect outputs
+  tools_edgar.py       # SEC EDGAR data tools (edgar_search, market_data)
 eval/
   checks.py            # deterministic checks against deliverables (openpyxl, etc.)
   score.py             # route each criterion (check vs judge), weighted aggregate
 scripts/
+  ingest_tasks.py      # import the authoring spreadsheet -> public tasks + private rubrics
   leaderboard.py       # aggregate results across models/tasks -> leaderboard + Pareto data
 results/               # per-model, per-task score JSON (gitignored)
 ```
@@ -60,14 +62,15 @@ results/               # per-model, per-task score JSON (gitignored)
 ## Public vs private (benchmark integrity)
 
 Publishing the rubrics and answer values lets models be tuned to them and
-contaminates the benchmark. Recommended split:
+contaminates the benchmark. The split:
 
-- **Public (committed):** `tasks.test.jsonl` (no rubric/context/answers), a small
-  `tasks.dev.jsonl` with full rubrics for calibration, the harness, and the eval code.
-- **Private (NOT committed, served at score time):** the test-set rubrics, any
-  golden outputs, and the `prompt_context`/`formatting_context` fields. `.gitignore`
-  excludes `rubrics/` and `results/` by default; keep the real test rubrics in a
-  private store and point `score.py --rubric-dir` at it server-side.
+- **Public (committed):** `tasks.test.jsonl` (final_prompt + product/category only,
+  no rubric/context/answers), the harness, and the eval code.
+- **Private (NOT committed, served at score time):** every rubric, any golden
+  outputs, and the `prompt_context`/`formatting_context` fields (in
+  `tasks.private.jsonl`). `.gitignore` excludes `rubrics/`, `results/`, and
+  `tasks.private.jsonl`; keep the real rubrics in a private store and point
+  `score.py --rubric` at them server-side.
 
 ## Data schema
 
@@ -107,12 +110,12 @@ flexible where it has to be.
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=...        # for the LLM judge (and the reference harness)
 
-# 1) score an already-produced deliverable against a rubric (this works today)
+# 1) score an already-produced deliverable against a rubric (rubrics are private)
 python -m eval.score \
-  --task-id btb-001 \
-  --rubric rubrics/btb-001.json \
+  --task-id T-001 \
+  --rubric rubrics/T-001.json \
   --outputs path/to/agent_outputs/ \
-  --out results/claude__btb-001.json
+  --out results/claude__T-001.json
 
 # 2) run the full rollout (requires OpenHands installed; see harness/run_task.py)
 python harness/run_task.py --tasks data/tasks.test.jsonl --model <model> --mode realistic
