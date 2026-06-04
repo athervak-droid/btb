@@ -113,6 +113,12 @@ def prepare_workspace(task: dict, mode: str, root: str) -> str:
     if os.path.isdir(src):
         for name in os.listdir(src):
             shutil.copy2(os.path.join(src, name), os.path.join(ws, "inputs", name))
+
+    # drop the EDGAR data tools into the workspace so the agent can import them
+    # (stdlib-only, no key). The agent calls them from its terminal; see _ENV_PREAMBLE.
+    tools_src = os.path.join(os.path.dirname(__file__), "tools_edgar.py")
+    if os.path.isfile(tools_src):
+        shutil.copy2(tools_src, os.path.join(ws, "tools_edgar.py"))
     return ws
 
 
@@ -129,68 +135,87 @@ def _preflight_openhands():
         import openhands  # noqa: F401
     except Exception:
         problems.append("openhands not installed (needs Python 3.12+: `pip install openhands-ai`).")
+    # Docker is only required when running the agent in a containerized workspace;
+    # a LocalWorkspace run does not need it. We still report it so the sandboxed
+    # path is available.
     if shutil.which("docker") is None:
-        problems.append("docker CLI not found; install Docker Desktop and start it.")
+        problems.append("docker CLI not found (needed only for a sandboxed workspace; "
+                        "install Docker Desktop or `brew install colima docker` + `colima start`).")
     else:
         import subprocess
         if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
-            problems.append("docker daemon not running; start Docker Desktop.")
+            problems.append("docker daemon not running; start it (`colima start` or Docker Desktop).")
     if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")):
         problems.append("no ANTHROPIC_API_KEY / LLM_API_KEY set for the agent model.")
     return (not problems), problems
 
 
+# Tells the agent where to write and that the EDGAR tools are on hand. This is
+# harness scaffolding (tools + output location), NOT task content: it carries no
+# rubric answer and is kept separate from the graded final_prompt.
+_ENV_PREAMBLE = (
+    "You are running headless in a sandboxed workspace. Your current directory is "
+    "the workspace root. Write every final deliverable into the ./outputs/ "
+    "directory (create it if needed); only files there are collected and graded.\n\n"
+    "Two data tools are available as a local Python module, tools_edgar.py, in the "
+    "workspace (SEC EDGAR, free, no key). Call them from the terminal, e.g.:\n"
+    "  python -c \"from tools_edgar import edgar_search, market_data; "
+    "import json; print(json.dumps(edgar_search('OKE', form_type='10-K', limit=3), indent=2))\"\n"
+    "  python -c \"from tools_edgar import market_data; "
+    "print(market_data('OKE', 'net_debt'))\"\n"
+    "edgar_search(ticker_or_cik, form_type=None, as_of=None) lists filings; "
+    "market_data(ticker, field, as_of=None) returns fundamentals (revenue, "
+    "net_income, shares_diluted, cash, net_debt, ebitda, net_debt_to_ebitda, "
+    "interest_coverage, ...). EDGAR has no market prices or consensus, so those "
+    "fields raise; source prices/estimates from the filings or state them.\n"
+)
+
+
 def run_with_openhands(workspace: str, model: str, max_iterations: int = 100):
-    """Run the agent inside OpenHands against the prepared workspace.
+    """Run the agent against the prepared workspace via the OpenHands SDK.
 
-    Reference path: OpenHands (Docker-sandboxed bash + file editing), same as
-    Vibe Code Bench and BTB. This drives a real model and therefore SPENDS money.
+    Targets openhands-ai 1.7.x (OpenHands software-agent SDK 1.19.x), whose API
+    lives under `openhands.sdk`. This drives a real model and therefore SPENDS
+    money once preflight passes.
 
-    Flow (OpenHands headless / programmatic API; pin a version, the API moves):
-      1. Preflight: runtime + Docker + API key must be present (cheap, no spend).
-      2. Build an LLM config for `model` (ANTHROPIC_API_KEY) and an AgentConfig
-         whose workspace mount is `workspace/`; bash + file editing are built in.
-      3. Register TOOLS as MCP tools / custom actions so the agent can call
-         edgar_search / market_data (dispatch through TOOL_IMPLS).
-      4. Seed the conversation with final_prompt.txt; instruct the agent to write
-         deliverables into `workspace/outputs/`.
-      5. Run up to max_iterations (or a wall-clock budget), then stop.
+    Flow:
+      1. Preflight (cheap, no spend): runtime + API key present.
+      2. Build an LLM for `model` from ANTHROPIC_API_KEY / LLM_API_KEY.
+      3. Default agent = terminal + file_editor + task_tracker tools, running in
+         `workspace` (a LocalWorkspace; point this at a Docker/remote workspace
+         for stronger isolation - Colima provides the engine).
+      4. Seed an environment preamble (output dir + EDGAR tools), then the task
+         prompt, and run to completion (bounded by max_iterations).
     Returns the path to the outputs directory.
     """
     ok, problems = _preflight_openhands()
-    if not ok:
+    # Docker is optional for a LocalWorkspace run; only the runtime + key are hard
+    # requirements here. Surface any docker note but don't block on it.
+    hard = [p for p in problems if "docker" not in p.lower()]
+    if hard:
         raise RuntimeError(
-            "OpenHands runtime not ready:\n  - " + "\n  - ".join(problems) +
+            "OpenHands runtime not ready:\n  - " + "\n  - ".join(hard) +
             "\nThis path spends API credits once it runs. Prompt is at "
             f"{os.path.join(workspace, 'final_prompt.txt')}; deliverables go to "
             f"{os.path.join(workspace, 'outputs')}.")
 
-    # --- runtime wiring (executed only once preflight passes) -------------------
-    # Pinned against the OpenHands programmatic API. Kept import-local so the
-    # module imports fine without OpenHands installed.
-    from openhands.core.config import AppConfig, AgentConfig, LLMConfig  # type: ignore
-    from openhands.core.main import run_controller  # type: ignore
-    from openhands.events.action import MessageAction  # type: ignore
+    # Import-local so this module loads fine without OpenHands installed.
+    from pydantic import SecretStr
+    from openhands.sdk import LLM, Conversation  # type: ignore
+    from openhands.tools.preset.default import get_default_agent  # type: ignore
 
     outputs = os.path.join(workspace, "outputs")
+    os.makedirs(outputs, exist_ok=True)
     prompt = open(os.path.join(workspace, "final_prompt.txt")).read()
 
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
-    llm = LLMConfig(model=model, api_key=api_key)
-    config = AppConfig(
-        llm=llm,
-        default_agent="CodeActAgent",
-        max_iterations=max_iterations,
-        workspace_base=workspace,            # agent's cwd; it writes to outputs/
-        agents={"CodeActAgent": AgentConfig()},
-    )
-    # TOOLS / TOOL_IMPLS are exposed to the agent as MCP tools by your OpenHands
-    # MCP config (point an MCP server at TOOL_IMPLS). See README "Wire the data tools".
-    import asyncio
-    asyncio.run(run_controller(
-        config=config,
-        initial_user_action=MessageAction(content=prompt),
-    ))
+    llm = LLM(model=model, api_key=SecretStr(api_key), usage_id="agent",
+              max_message_chars=30000)
+    agent = get_default_agent(llm=llm, cli_mode=True)  # cli_mode: no browser GUI
+    conversation = Conversation(agent=agent, workspace=workspace,
+                                max_iteration_per_run=max_iterations)
+    conversation.send_message(_ENV_PREAMBLE + "\nTASK:\n" + prompt)
+    conversation.run()
     return outputs
 
 
