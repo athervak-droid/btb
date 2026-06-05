@@ -38,7 +38,10 @@ def main():
             r = json.load(f)
         if "task_score" not in r:
             continue
-        model = model_from_filename(path)
+        # prefer the model name recorded in the result; strip provider prefix for display
+        model = r.get("model") or model_from_filename(path)
+        if "/" in model:
+            model = model.split("/", 1)[1]
         per_model_scores[model].append(r["task_score"])
         cat = r.get("workflow_cat") or "Uncategorized"
         per_model_cat[model][cat].append(r["task_score"])

@@ -54,7 +54,7 @@ export default function Page() {
         <span className="chip"><span className="dot" /> <b>{PRODUCTS.length}</b>&nbsp;products</span>
         <span className="chip"><span className="dot" /> M&A · DCM · ECM · LevFin · Restructuring</span>
       </div>
-      <div><span className="badge">Demo · illustrative sample data, not real eval results</span></div>
+      <div><span className="badge live">Live eval · real agent rollouts graded against expert rubrics · tasks T-002–T-010 (T-001 omitted: data-heavy, harness WIP)</span></div>
 
       <div className="section-head">
         <div className="section-title">Leaderboard</div>

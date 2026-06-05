@@ -215,16 +215,21 @@ def run_with_openhands(workspace: str, model: str, max_iterations: int = 100, st
     # `model` can be any model the gateway fronts (e.g. "gpt-5.5",
     # "anthropic/claude-opus-4.8"). litellm reaches a custom OpenAI endpoint via
     # the "openai/<model>" prefix. Else use ANTHROPIC_API_KEY directly.
+    # Lower reasoning effort than the default 'high': building a spreadsheet needs
+    # execution turns, not deep deliberation, and 'high' burns thinking tokens that
+    # crowd out actions (thorough models hit the iteration cap before writing the
+    # file). Override via AGENT_REASONING_EFFORT.
+    reff = os.environ.get("AGENT_REASONING_EFFORT", "medium")
     base = os.environ.get("INFERENCE_BASE_URL")
     if base:
         llm = LLM(model="openai/" + model,
                   base_url=base.rstrip("/") + "/v1",
                   api_key=SecretStr(os.environ.get("INFERENCE_API_KEY")),
-                  usage_id="agent", max_message_chars=30000)
+                  usage_id="agent", max_message_chars=30000, reasoning_effort=reff)
     else:
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
         llm = LLM(model=model, api_key=SecretStr(api_key), usage_id="agent",
-                  max_message_chars=30000)
+                  max_message_chars=30000, reasoning_effort=reff)
     agent = get_default_agent(llm=llm, cli_mode=True)  # cli_mode: no browser GUI
     conversation = Conversation(agent=agent, workspace=workspace,
                                 max_iteration_per_run=max_iterations)
@@ -233,7 +238,25 @@ def run_with_openhands(workspace: str, model: str, max_iterations: int = 100, st
              f"Use that absolute path; do NOT invent a /workspace path. Only files "
              f"there are collected and graded.\n\n")
     conversation.send_message(where + _ENV_PREAMBLE + "\nTASK:\n" + prompt)
-    conversation.run()
+    # Hard wall-clock budget per task: some thorough models rabbit-hole on
+    # open-ended data tasks and never converge. SIGALRM interrupts conversation.run()
+    # so we still collect+score whatever was written. Set AGENT_TIME_BUDGET_S (0=off).
+    budget_s = int(os.environ.get("AGENT_TIME_BUDGET_S", "0") or 0)
+    import signal
+    if budget_s > 0 and hasattr(signal, "SIGALRM"):
+        def _on_timeout(signum, frame):
+            raise TimeoutError(f"task time budget of {budget_s}s exceeded")
+        signal.signal(signal.SIGALRM, _on_timeout)
+        signal.alarm(budget_s)
+    try:
+        conversation.run()
+    except TimeoutError as e:
+        if stats_out is not None:
+            stats_out["timed_out"] = True
+        print(f"  [time budget] {e}; scoring whatever was produced", flush=True)
+    finally:
+        if budget_s > 0 and hasattr(signal, "SIGALRM"):
+            signal.alarm(0)
     if stats_out is not None:
         stats_out["conversation"] = conversation
         try:  # best-effort token capture for cost; structure varies by SDK version

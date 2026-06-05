@@ -30,7 +30,9 @@ PRICES = {
     "gpt-5.5": (1.25, 10.0),
     "anthropic/claude-opus-4.8": (15.0, 75.0),
     "anthropic/claude-sonnet-4.5": (3.0, 15.0),
+    "anthropic/claude-sonnet-4.6": (3.0, 15.0),
     "anthropic/claude-haiku-4.5": (1.0, 5.0),
+    "google/gemini-3.1-pro-preview": (2.0, 12.0),
 }
 
 
@@ -89,7 +91,7 @@ def main():
     ap.add_argument("--tasks", default="data/tasks.test.jsonl")
     ap.add_argument("--judge-model", default="anthropic/claude-sonnet-4.5")
     ap.add_argument("--rubric-dir", default="rubrics")
-    ap.add_argument("--max-iters", type=int, default=50)
+    ap.add_argument("--max-iters", type=int, default=80)
     ap.add_argument("--workspaces", default="workspaces")
     ap.add_argument("--out-dir", default="results")
     args = ap.parse_args()

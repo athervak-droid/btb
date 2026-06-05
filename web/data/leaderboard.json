@@ -1,186 +1,96 @@
 {
   "leaderboard": [
     {
-      "model": "claude-opus-4-8",
-      "overall": 0.8747,
-      "n_tasks": 10,
+      "model": "claude-haiku-4.5",
+      "overall": 0.4784,
+      "n_tasks": 9,
       "by_category": {
-        "Credit Analysis & Risk Assessment": 0.8642,
-        "ESG/Sustainable Finance": 0.8786,
-        "Fairness Opinion and Board Advisory": 0.8782,
-        "Valuation and Pricing Analysis": 0.8857,
-        "Finanical Modeling and Scenario Analysis": 0.8824,
-        "Issuance and Deal Execution": 0.8274,
-        "Capital Structure Advisory": 0.8731,
-        "Strategic Advisory": 0.8986,
-        "Restructuring & Special Situations": 0.8734
+        "Credit Analysis & Risk Assessment": 0.3696,
+        "ESG/Sustainable Finance": 0.591,
+        "Fairness Opinion and Board Advisory": 0.4546,
+        "Valuation and Pricing Analysis": 0.6076,
+        "Finanical Modeling and Scenario Analysis": 0.228,
+        "Issuance and Deal Execution": 0.6765,
+        "Capital Structure Advisory": 0.2451,
+        "Strategic Advisory": 0.5096,
+        "Restructuring & Special Situations": 0.6237
       },
       "by_product": {
-        "LevFin": 0.8714,
-        "M&A": 0.8937,
-        "ECM": 0.856,
-        "DCM": 0.8502,
-        "Restructuring": 0.8734
+        "LevFin": 0.4803,
+        "M&A": 0.3974,
+        "ECM": 0.6076,
+        "DCM": 0.4608,
+        "Restructuring": 0.6237
       },
-      "total_cost_usd": 19.88,
-      "avg_cost_usd": 1.988
+      "total_cost_usd": 9.12,
+      "avg_cost_usd": 1.013
     },
     {
-      "model": "claude-sonnet-4-6",
-      "overall": 0.7907,
-      "n_tasks": 10,
+      "model": "gemini-3.1-pro-preview",
+      "overall": 0.4549,
+      "n_tasks": 9,
       "by_category": {
-        "ESG/Sustainable Finance": 0.8246,
-        "Credit Analysis & Risk Assessment": 0.7874,
-        "Valuation and Pricing Analysis": 0.7771,
-        "Fairness Opinion and Board Advisory": 0.8242,
-        "Finanical Modeling and Scenario Analysis": 0.8218,
-        "Issuance and Deal Execution": 0.7554,
-        "Strategic Advisory": 0.77,
-        "Capital Structure Advisory": 0.7937,
-        "Restructuring & Special Situations": 0.7753
+        "Finanical Modeling and Scenario Analysis": 0.2921,
+        "Issuance and Deal Execution": 0.7526,
+        "Credit Analysis & Risk Assessment": 0.5456,
+        "ESG/Sustainable Finance": 0.6193,
+        "Fairness Opinion and Board Advisory": 0.3156,
+        "Valuation and Pricing Analysis": 0.6545,
+        "Capital Structure Advisory": 0.2566,
+        "Strategic Advisory": 0.1242,
+        "Restructuring & Special Situations": 0.5336
       },
       "by_product": {
-        "LevFin": 0.806,
-        "ECM": 0.73,
-        "M&A": 0.8101,
-        "DCM": 0.7745,
-        "Restructuring": 0.7753
+        "M&A": 0.244,
+        "DCM": 0.5046,
+        "LevFin": 0.5824,
+        "ECM": 0.6545,
+        "Restructuring": 0.5336
       },
-      "total_cost_usd": 6.05,
-      "avg_cost_usd": 0.605
+      "total_cost_usd": 10.95,
+      "avg_cost_usd": 1.217
     },
     {
-      "model": "gemini-2.5-pro",
-      "overall": 0.7854,
-      "n_tasks": 10,
+      "model": "gpt-4.1",
+      "overall": 0.2871,
+      "n_tasks": 9,
       "by_category": {
-        "Valuation and Pricing Analysis": 0.8148,
-        "Strategic Advisory": 0.7956,
-        "Capital Structure Advisory": 0.8287,
-        "Restructuring & Special Situations": 0.7538,
-        "ESG/Sustainable Finance": 0.7303,
-        "Credit Analysis & Risk Assessment": 0.7353,
-        "Fairness Opinion and Board Advisory": 0.789,
-        "Finanical Modeling and Scenario Analysis": 0.8322,
-        "Issuance and Deal Execution": 0.7598
+        "Strategic Advisory": 0.0,
+        "Capital Structure Advisory": 0.0,
+        "Restructuring & Special Situations": 0.4478,
+        "Credit Analysis & Risk Assessment": 0.0615,
+        "ESG/Sustainable Finance": 0.0234,
+        "Fairness Opinion and Board Advisory": 0.0,
+        "Valuation and Pricing Analysis": 0.645,
+        "Finanical Modeling and Scenario Analysis": 0.705,
+        "Issuance and Deal Execution": 0.701
       },
       "by_product": {
-        "M&A": 0.803,
-        "DCM": 0.7943,
-        "Restructuring": 0.7538,
-        "LevFin": 0.7328,
-        "ECM": 0.8346
+        "M&A": 0.235,
+        "DCM": 0.3505,
+        "Restructuring": 0.4478,
+        "LevFin": 0.0425,
+        "ECM": 0.645
       },
-      "total_cost_usd": 4.91,
-      "avg_cost_usd": 0.491
-    },
-    {
-      "model": "gpt-4o",
-      "overall": 0.7112,
-      "n_tasks": 10,
-      "by_category": {
-        "Restructuring & Special Situations": 0.6891,
-        "Capital Structure Advisory": 0.7131,
-        "Strategic Advisory": 0.68,
-        "Valuation and Pricing Analysis": 0.7287,
-        "Issuance and Deal Execution": 0.7591,
-        "Finanical Modeling and Scenario Analysis": 0.665,
-        "Fairness Opinion and Board Advisory": 0.7349,
-        "ESG/Sustainable Finance": 0.7266,
-        "Credit Analysis & Risk Assessment": 0.6869
-      },
-      "by_product": {
-        "Restructuring": 0.6891,
-        "DCM": 0.7361,
-        "M&A": 0.6933,
-        "ECM": 0.7642,
-        "LevFin": 0.7067
-      },
-      "total_cost_usd": 6.93,
-      "avg_cost_usd": 0.693
-    },
-    {
-      "model": "claude-haiku-4-5",
-      "overall": 0.6691,
-      "n_tasks": 10,
-      "by_category": {
-        "Valuation and Pricing Analysis": 0.6653,
-        "Fairness Opinion and Board Advisory": 0.6884,
-        "ESG/Sustainable Finance": 0.6354,
-        "Credit Analysis & Risk Assessment": 0.6786,
-        "Issuance and Deal Execution": 0.6563,
-        "Finanical Modeling and Scenario Analysis": 0.7069,
-        "Restructuring & Special Situations": 0.6331,
-        "Capital Structure Advisory": 0.675,
-        "Strategic Advisory": 0.6866
-      },
-      "by_product": {
-        "ECM": 0.6424,
-        "M&A": 0.6925,
-        "LevFin": 0.657,
-        "DCM": 0.6657,
-        "Restructuring": 0.6331
-      },
-      "total_cost_usd": 1.68,
-      "avg_cost_usd": 0.168
-    },
-    {
-      "model": "o3-mini",
-      "overall": 0.6197,
-      "n_tasks": 10,
-      "by_category": {
-        "Valuation and Pricing Analysis": 0.6057,
-        "Restructuring & Special Situations": 0.677,
-        "Capital Structure Advisory": 0.6371,
-        "Strategic Advisory": 0.5753,
-        "Fairness Opinion and Board Advisory": 0.6008,
-        "Credit Analysis & Risk Assessment": 0.6269,
-        "ESG/Sustainable Finance": 0.641,
-        "Issuance and Deal Execution": 0.6058,
-        "Finanical Modeling and Scenario Analysis": 0.6218
-      },
-      "by_product": {
-        "M&A": 0.6067,
-        "Restructuring": 0.677,
-        "DCM": 0.6215,
-        "ECM": 0.5824,
-        "LevFin": 0.634
-      },
-      "total_cost_usd": 2.37,
-      "avg_cost_usd": 0.237
+      "total_cost_usd": 5.71,
+      "avg_cost_usd": 0.634
     }
   ],
   "pareto": [
     {
-      "model": "claude-opus-4-8",
-      "accuracy": 0.8747,
-      "cost_usd": 19.88
+      "model": "claude-haiku-4.5",
+      "accuracy": 0.4784,
+      "cost_usd": 9.12
     },
     {
-      "model": "claude-sonnet-4-6",
-      "accuracy": 0.7907,
-      "cost_usd": 6.05
+      "model": "gemini-3.1-pro-preview",
+      "accuracy": 0.4549,
+      "cost_usd": 10.95
     },
     {
-      "model": "gemini-2.5-pro",
-      "accuracy": 0.7854,
-      "cost_usd": 4.91
-    },
-    {
-      "model": "gpt-4o",
-      "accuracy": 0.7112,
-      "cost_usd": 6.93
-    },
-    {
-      "model": "claude-haiku-4-5",
-      "accuracy": 0.6691,
-      "cost_usd": 1.68
-    },
-    {
-      "model": "o3-mini",
-      "accuracy": 0.6197,
-      "cost_usd": 2.37
+      "model": "gpt-4.1",
+      "accuracy": 0.2871,
+      "cost_usd": 5.71
     }
   ]
 }
