@@ -220,12 +220,27 @@ def run_with_openhands(workspace: str, model: str, max_iterations: int = 100, st
     # crowd out actions (thorough models hit the iteration cap before writing the
     # file). Override via AGENT_REASONING_EFFORT.
     reff = os.environ.get("AGENT_REASONING_EFFORT", "medium")
+    # gpt-5.x via an OpenAI-compatible gateway breaks agentic tool-calling when any
+    # reasoning_effort is set (the gateway routes reasoning to a "responses" API).
+    # Disable reasoning for those so they use plain chat/completions + tools.
+    if "gpt-5" in model:
+        reff = None
     base = os.environ.get("INFERENCE_BASE_URL")
     if base:
+        # OpenHands force-routes gpt-5* (and codex) to OpenAI's Responses API, but
+        # sends Chat-Completions-style tool defs the gateway's responses endpoint
+        # 400s on ("Function tools must include a function definition"). The gateway
+        # is plain chat/completions-compatible, so disable Responses-API routing.
+        from openhands.sdk.llm.utils import model_features as _mf  # type: ignore
+        _mf.RESPONSES_API_MODELS = []
+        # encrypted reasoning blocks aren't supported by the OpenAI-compatible
+        # gateway and make reasoning models (gpt-5.x, gemini flash) 400 / route to
+        # a "responses" API that breaks tool-calling. Disable it.
         llm = LLM(model="openai/" + model,
                   base_url=base.rstrip("/") + "/v1",
                   api_key=SecretStr(os.environ.get("INFERENCE_API_KEY")),
-                  usage_id="agent", max_message_chars=30000, reasoning_effort=reff)
+                  usage_id="agent", max_message_chars=30000, reasoning_effort=reff,
+                  enable_encrypted_reasoning=False)
     else:
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
         llm = LLM(model=model, api_key=SecretStr(api_key), usage_id="agent",
