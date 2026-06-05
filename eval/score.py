@@ -87,20 +87,33 @@ JUDGE_SYSTEM = (
 
 
 def llm_judge(criterion: str, deliverable_text: str, final_prompt: str, model: str):
-    from anthropic import Anthropic
-    client = Anthropic()  # reads ANTHROPIC_API_KEY
     user = (
         f"TASK GIVEN TO THE AGENT:\n{final_prompt}\n\n"
         f"RUBRIC CRITERION TO GRADE:\n{criterion}\n\n"
         f"AGENT DELIVERABLE (extracted):\n{deliverable_text}\n\n"
         "Score how well the deliverable satisfies the criterion."
     )
-    msg = client.messages.create(
-        model=model, max_tokens=600,
-        system=JUDGE_SYSTEM,
-        messages=[{"role": "user", "content": user}],
-    )
-    raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    # Route through an OpenAI-compatible gateway (INFERENCE_BASE_URL) if set - lets
+    # the judge be any model the gateway fronts. Else use the Anthropic SDK.
+    base = os.environ.get("INFERENCE_BASE_URL")
+    if base:
+        from openai import OpenAI
+        client = OpenAI(base_url=base.rstrip("/") + "/v1",
+                        api_key=os.environ.get("INFERENCE_API_KEY"))
+        msg = client.chat.completions.create(
+            model=model, max_tokens=600,
+            messages=[{"role": "system", "content": JUDGE_SYSTEM},
+                      {"role": "user", "content": user}],
+        )
+        raw = (msg.choices[0].message.content or "").strip()
+    else:
+        from anthropic import Anthropic
+        client = Anthropic()  # reads ANTHROPIC_API_KEY
+        msg = client.messages.create(
+            model=model, max_tokens=600, system=JUDGE_SYSTEM,
+            messages=[{"role": "user", "content": user}],
+        )
+        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     score, rationale = _parse_judge(raw)
     if score is None:
         return 0.0, f"judge parse error: {raw[:160]}"

@@ -145,8 +145,9 @@ def _preflight_openhands():
         import subprocess
         if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
             problems.append("docker daemon not running; start it (`colima start` or Docker Desktop).")
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")):
-        problems.append("no ANTHROPIC_API_KEY / LLM_API_KEY set for the agent model.")
+    if not (os.environ.get("INFERENCE_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+            or os.environ.get("LLM_API_KEY")):
+        problems.append("no INFERENCE_API_KEY / ANTHROPIC_API_KEY / LLM_API_KEY set for the agent model.")
     return (not problems), problems
 
 
@@ -154,9 +155,7 @@ def _preflight_openhands():
 # harness scaffolding (tools + output location), NOT task content: it carries no
 # rubric answer and is kept separate from the graded final_prompt.
 _ENV_PREAMBLE = (
-    "You are running headless in a sandboxed workspace. Your current directory is "
-    "the workspace root. Write every final deliverable into the ./outputs/ "
-    "directory (create it if needed); only files there are collected and graded.\n\n"
+    "You are running headless in a sandboxed workspace.\n\n"
     "Two data tools are available as a local Python module, tools_edgar.py, in the "
     "workspace (SEC EDGAR, free, no key). Call them from the terminal, e.g.:\n"
     "  python -c \"from tools_edgar import edgar_search, market_data; "
@@ -174,7 +173,7 @@ _ENV_PREAMBLE = (
 )
 
 
-def run_with_openhands(workspace: str, model: str, max_iterations: int = 100):
+def run_with_openhands(workspace: str, model: str, max_iterations: int = 100, stats_out: dict = None):
     """Run the agent against the prepared workspace via the OpenHands SDK.
 
     Targets openhands-ai 1.7.x (OpenHands software-agent SDK 1.19.x), whose API
@@ -207,18 +206,48 @@ def run_with_openhands(workspace: str, model: str, max_iterations: int = 100):
     from openhands.sdk import LLM, Conversation  # type: ignore
     from openhands.tools.preset.default import get_default_agent  # type: ignore
 
+    workspace = os.path.abspath(workspace)  # OpenHands LocalWorkspace needs an absolute dir
     outputs = os.path.join(workspace, "outputs")
     os.makedirs(outputs, exist_ok=True)
     prompt = open(os.path.join(workspace, "final_prompt.txt")).read()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
-    llm = LLM(model=model, api_key=SecretStr(api_key), usage_id="agent",
-              max_message_chars=30000)
+    # Route through an OpenAI-compatible gateway (INFERENCE_BASE_URL) if set, so
+    # `model` can be any model the gateway fronts (e.g. "gpt-5.5",
+    # "anthropic/claude-opus-4.8"). litellm reaches a custom OpenAI endpoint via
+    # the "openai/<model>" prefix. Else use ANTHROPIC_API_KEY directly.
+    base = os.environ.get("INFERENCE_BASE_URL")
+    if base:
+        llm = LLM(model="openai/" + model,
+                  base_url=base.rstrip("/") + "/v1",
+                  api_key=SecretStr(os.environ.get("INFERENCE_API_KEY")),
+                  usage_id="agent", max_message_chars=30000)
+    else:
+        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
+        llm = LLM(model=model, api_key=SecretStr(api_key), usage_id="agent",
+                  max_message_chars=30000)
     agent = get_default_agent(llm=llm, cli_mode=True)  # cli_mode: no browser GUI
     conversation = Conversation(agent=agent, workspace=workspace,
                                 max_iteration_per_run=max_iterations)
-    conversation.send_message(_ENV_PREAMBLE + "\nTASK:\n" + prompt)
+    where = (f"Your working directory is: {workspace}\n"
+             f"Write EVERY final deliverable into this exact directory: {outputs}\n"
+             f"Use that absolute path; do NOT invent a /workspace path. Only files "
+             f"there are collected and graded.\n\n")
+    conversation.send_message(where + _ENV_PREAMBLE + "\nTASK:\n" + prompt)
     conversation.run()
+    if stats_out is not None:
+        stats_out["conversation"] = conversation
+        try:  # best-effort token capture for cost; structure varies by SDK version
+            st = getattr(conversation, "conversation_stats", None) or \
+                 getattr(getattr(conversation, "state", None), "stats", None)
+            metrics = getattr(st, "get_combined_metrics", lambda: None)() if st else None
+            usage = getattr(metrics, "accumulated_token_usage", None) if metrics else None
+            if usage is not None:
+                stats_out["input_tokens"] = getattr(usage, "prompt_tokens", 0)
+                stats_out["output_tokens"] = getattr(usage, "completion_tokens", 0)
+            if metrics is not None:  # OpenHands' own cost calc, when it knows the model price
+                stats_out["agent_cost"] = getattr(metrics, "accumulated_cost", None)
+        except Exception as e:
+            stats_out["stats_error"] = str(e)
     return outputs
 
 
