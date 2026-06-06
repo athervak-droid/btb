@@ -54,7 +54,7 @@ export default function Page() {
         <span className="chip"><span className="dot" /> <b>{PRODUCTS.length}</b>&nbsp;products</span>
         <span className="chip"><span className="dot" /> M&A · DCM · ECM · LevFin · Restructuring</span>
       </div>
-      <div><span className="badge live">Live eval · real agent rollouts graded against expert rubrics · tasks T-002–T-010 (T-001 omitted: data-heavy, harness WIP)</span></div>
+      <div><span className="badge live">Live eval · real agent rollouts graded against expert rubrics · tasks T-002–T-010 (T-001 omitted) · see notes ↓</span></div>
 
       <div className="section-head">
         <div className="section-title">Leaderboard</div>
@@ -137,10 +137,24 @@ export default function Page() {
         <CostAccuracyScatter points={pareto} frontier={[...onFrontier]} />
       </div>
 
+      <div className="notes">
+        <div className="notes-title">Run notes (read before comparing)</div>
+        <ul>
+          <li><b>gpt-5.5</b> — complete (9/9 tasks). Clean result.</li>
+          <li><b>claude-opus-4.8</b> — 7/9 tasks. It over-engineers data-heavy tasks
+            (millions of tokens each), which exhausted the gateway's spend cap before
+            T-009/T-010 could be graded. Its cost (~$215) reflects that.</li>
+          <li><b>gemini-3.5-flash</b> — score is <i>not</i> a fair measure of ability:
+            a harness/gateway bug (a 400 "tool call and no content" error) crashed it
+            mid-task on most tasks, so it produced no deliverable and scored 0 there.
+            It scored ~0.7 on the tasks where it didn't hit that bug.</li>
+        </ul>
+      </div>
+
       <p className="foot">
         Each task is scored as the weighted mean across rubric criteria (deterministic checks +
-        an LLM judge), averaged for the headline and broken out by product. Rebuild the data with{" "}
-        <code>python scripts/leaderboard.py</code> then <code>npm run sync</code>.{" "}
+        an LLM judge), averaged for the headline and broken out by product. Per-model task counts
+        differ (see notes); the table shows each model's average over the tasks it completed.{" "}
         <a href="https://github.com/athervak-droid/btb">Source on GitHub →</a>
       </p>
     </main>

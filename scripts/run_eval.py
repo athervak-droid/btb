@@ -33,6 +33,7 @@ PRICES = {
     "anthropic/claude-sonnet-4.6": (3.0, 15.0),
     "anthropic/claude-haiku-4.5": (1.0, 5.0),
     "google/gemini-3.1-pro-preview": (2.0, 12.0),
+    "google/gemini-3.5-flash": (0.30, 2.50),
 }
 
 

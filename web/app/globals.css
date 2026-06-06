@@ -136,7 +136,17 @@ tbody tr:hover { background: var(--panel-2); }
 .legend .sw { width: 10px; height: 10px; border-radius: 50%; }
 .legend .ln { width: 16px; height: 2px; border-radius: 2px; }
 
-.foot { color: var(--faint); font-size: 13px; margin-top: 30px; line-height: 1.7; }
+.notes {
+  margin-top: 34px; padding: 18px 20px; border-radius: 12px;
+  background: rgba(251, 191, 36, 0.05); border: 1px solid rgba(251, 191, 36, 0.22);
+}
+.notes-title { font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--amber); margin-bottom: 10px; }
+.notes ul { margin: 0; padding-left: 18px; }
+.notes li { color: var(--muted); font-size: 13.5px; line-height: 1.65; margin-bottom: 7px; }
+.notes b { color: var(--text); }
+
+.foot { color: var(--faint); font-size: 13px; margin-top: 22px; line-height: 1.7; }
 .foot code { background: var(--panel-2); padding: 2px 7px; border-radius: 6px; color: var(--muted); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
